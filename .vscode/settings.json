@@ -7,7 +7,8 @@
     "editor.fontFamily": "Liberation Mono",
     "editor.fontSize": 16,
     "editor.fontWeight": "1",
-    "workbench.editor.showTabs": "single",
+    "workbench.editor.showTabs": false,
+    "workbench.activityBar.visible": true,
     "workbench.colorCustomizations": {
         "editorCursor.foreground": "#00ff33",
         "editor.lineHighlightBackground": "#111144"
@@ -61,6 +62,7 @@
         "iosfwd": "c",
         "tuple": "cpp",
         "utility": "cpp",
-        "kmemory.h": "c"
+        "kmemory.h": "c",
+        "defines.h": "c"
     }
 }
