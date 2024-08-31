@@ -57,6 +57,14 @@ typedef int b32;
 /** @brief 8-bit boolean type */
 typedef _Bool b8;
 
+/** @brief A range, typically of memory */
+typedef struct range {
+    /** @brief The offset in bytes. */
+    u64 offset;
+    /** @brief The size in bytes. */
+    u64 size;
+} range;
+
 // Properly define static assertions.
 #if defined(__clang__) || defined(__gcc__)
 /** @brief Static assertion */
@@ -110,6 +118,8 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
  * and not actually pointing to a real object. 
  */
 #define INVALID_ID 4294967295U
+#define INVALID_ID_U16 65535U
+#define INVALID_ID_U8 255U
 
 // Platform detection
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
@@ -199,3 +209,25 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
 /** @brief No-inline qualifier */
 #define KNOINLINE
 #endif
+
+/** @brief Gets the number of bytes from amount of gibibytes (GiB) (1024*1024*1024) */
+#define GIBIBYTES(amount) amount * 1024 * 1024 * 1024
+/** @brief Gets the number of bytes from amount of mebibytes (MiB) (1024*1024) */
+#define MEBIBYTES(amount) amount * 1024 * 1024
+/** @brief Gets the number of bytes from amount of kibibytes (KiB) (1024) */
+#define KIBIBYTES(amount) amount * 1024
+
+/** @brief Gets the number of bytes from amount of gigabytes (GB) (1000*1000*1000) */
+#define GIGABYTES(amount) amount * 1000 * 1000 * 1000
+/** @brief Gets the number of bytes from amount of megabytes (MB) (1000*1000) */
+#define MEGABYTES(amount) amount * 1000 * 1000
+/** @brief Gets the number of bytes from amount of kilobytes (KB) (1000) */
+#define KILOBYTES(amount) amount * 1000
+
+KINLINE u64 get_aligned(u64 operand, u64 granularity) {
+    return ((operand + (granularity - 1)) & ~(granularity - 1));
+}
+
+KINLINE range get_aligned_range(offset, size, granularity) {
+    return (range){get_aligned(offset, granularity), get_aligned(size, granularity)};
+}

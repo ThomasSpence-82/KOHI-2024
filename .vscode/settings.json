@@ -4,7 +4,6 @@
     "editor.minimap.enabled": false,
     "terminal.integrated.shell.windows": "c:/Program Files/PowerShell/7/pwsh.exe",
     "terminal.integrated.fontWeight": "1",
-    "editor.fontFamily": "Liberation Mono",
     "editor.fontSize": 16,
     "editor.fontWeight": "1",
     "workbench.editor.showTabs": "multiple",
@@ -77,7 +76,8 @@
         "iterator": "c",
         "initializer_list": "c",
         "loader_utils.h": "c",
-        "kmath.h": "c"
+        "kmath.h": "c",
+        "random": "c"
     },
     // File copyright documentation tag.  Array of strings will be converted to one line per element.  Can template {year}.
     "doxdocgen.file.copyrightTag": [
