@@ -4,7 +4,7 @@ OBJ_DIR := obj
 
 ASSEMBLY := testbed
 EXTENSION := 
-COMPILER_FLAGS := -g -MD -Werror=vla -fdeclspec -fPIC
+COMPILER_FLAGS := -g -MD -fdeclspec -fPIC
 INCLUDE_FLAGS := -Iengine/src -Itestbed\src 
 LINKER_FLAGS := -L./$(BUILD_DIR)/ -lengine -Wl,-rpath,.
 DEFINES := -D_DEBUG -DKIMPORT
@@ -30,13 +30,13 @@ link: scaffold $(OBJ_FILES) # link
 	clang $(OBJ_FILES) -o $(BUILD_DIR)/$(ASSEMBLY)$(EXTENSION) $(LINKER_FLAGS)
 
 .PHONY: compile
-compile: #compile .c files
+compile: # compile .c files
 	@echo Compiling...
 
 .PHONY: clean
 clean: # clean build directory
-	rm -rf $(BUILD_DIR)/$(ASSEMBLY)
-	rm -rf $(OBJ_DIR)/$(ASSEMBLY)
+	rm -Rf $(BUILD_DIR)\$(ASSEMBLY)
+	rm -Rf $(OBJ_DIR)\$(ASSEMBLY)
 
 $(OBJ_DIR)/%.c.o: %.c # compile .c to .o object
 	@echo   $<...
