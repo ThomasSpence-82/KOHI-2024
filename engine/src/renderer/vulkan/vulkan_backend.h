@@ -24,11 +24,11 @@ void vulkan_renderer_backend_shutdown(renderer_backend* backend);
 void vulkan_renderer_backend_on_resized(renderer_backend* backend, u16 width, u16 height);
 b8 vulkan_renderer_backend_begin_frame(renderer_backend* backend, f32 delta_time);
 b8 vulkan_renderer_backend_end_frame(renderer_backend* backend, f32 delta_time);
-b8 vulkan_renderer_begin_renderpass(struct renderer_backend* backend, renderpass* pass, render_target* target);
-b8 vulkan_renderer_end_renderpass(struct renderer_backend* backend, renderpass* pass);
+b8 vulkan_renderer_renderpass_begin(renderpass* pass, render_target* target);
+b8 vulkan_renderer_renderpass_end(renderpass* pass);
 renderpass* vulkan_renderer_renderpass_get(const char* name);
 
-void vulkan_renderer_draw_geometry(geometry_render_data data);
+void vulkan_renderer_draw_geometry(geometry_render_data* data);
 void vulkan_renderer_texture_create(const u8* pixels, texture* texture);
 void vulkan_renderer_texture_destroy(texture* texture);
 void vulkan_renderer_texture_create_writeable(texture* t);
@@ -37,7 +37,7 @@ void vulkan_renderer_texture_write_data(texture* t, u32 offset, u32 size, const 
 b8 vulkan_renderer_create_geometry(geometry* geometry, u32 vertex_size, u32 vertex_count, const void* vertices, u32 index_size, u32 index_count, const void* indices);
 void vulkan_renderer_destroy_geometry(geometry* geometry);
 
-b8 vulkan_renderer_shader_create(struct shader* shader, renderpass* pass, u8 stage_count, const char** stage_filenames, shader_stage* stages);
+b8 vulkan_renderer_shader_create(struct shader* shader, const shader_config* config, renderpass* pass, u8 stage_count, const char** stage_filenames, shader_stage* stages);
 void vulkan_renderer_shader_destroy(struct shader* shader);
 
 b8 vulkan_renderer_shader_initialize(struct shader* shader);
@@ -62,3 +62,18 @@ void vulkan_renderer_render_target_destroy(render_target* target, b8 free_intern
 texture* vulkan_renderer_window_attachment_get(u8 index);
 texture* vulkan_renderer_depth_attachment_get();
 u8 vulkan_renderer_window_attachment_index_get();
+
+b8 vulkan_renderer_is_multithreaded();
+
+b8 vulkan_buffer_create_internal(renderbuffer* buffer);
+void vulkan_buffer_destroy_internal(renderbuffer* buffer);
+b8 vulkan_buffer_resize(renderbuffer* buffer, u64 new_size);
+b8 vulkan_buffer_bind(renderbuffer* buffer, u64 offset);
+b8 vulkan_buffer_unbind(renderbuffer* buffer);
+void* vulkan_buffer_map_memory(renderbuffer* buffer, u64 offset, u64 size);
+void vulkan_buffer_unmap_memory(renderbuffer* buffer, u64 offset, u64 size);
+b8 vulkan_buffer_flush(renderbuffer* buffer, u64 offset, u64 size);
+b8 vulkan_buffer_read(renderbuffer* buffer, u64 offset, u64 size, void** out_memory);
+b8 vulkan_buffer_load_range(renderbuffer* buffer, u64 offset, u64 size, const void* data);
+b8 vulkan_buffer_copy_range(renderbuffer* source, u64 source_offset, renderbuffer* dest, u64 dest_offset, u64 size);
+b8 vulkan_buffer_draw(renderbuffer* buffer, u64 offset, u32 element_count, b8 bind_only);
