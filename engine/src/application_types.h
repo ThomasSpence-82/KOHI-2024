@@ -13,6 +13,7 @@
 
 #include "core/engine.h"
 #include "memory/linear_allocator.h"
+#include "platform/platform.h"
 
 struct render_packet;
 
@@ -92,4 +93,10 @@ typedef struct application {
 
     /** @brief Data which is built up, used and discarded every frame. */
     app_frame_data frame_data;
+
+    // TODO: Move this to somewhere better...
+    dynamic_library renderer_library;
+    renderer_plugin render_plugin;
+
+    dynamic_library game_library;
 } application;

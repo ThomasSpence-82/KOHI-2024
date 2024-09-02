@@ -4,7 +4,9 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/engine/src/**",
-                "${VULKAN_SDK}/include"
+                "${workspaceFolder}/vulkan_renderer/src/**",
+                "${VULKAN_SDK}/include",
+                "C:/Program Files (x86)/Windows Kits/10/Include/10.0.22621.0/shared/ndis"
             ],
             "defines": [
                 "_DEBUG",
@@ -22,6 +24,7 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/engine/src/**",
+                "${workspaceFolder}/vulkan_renderer/src/**",
                 "${VULKAN_SDK}/include"
             ],
             "defines": [
@@ -39,6 +42,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/engine/src/**",
+                "${workspaceFolder}/vulkan_renderer/src/**",
                 "${VULKAN_SDK}/include"
             ],
             "defines": [
