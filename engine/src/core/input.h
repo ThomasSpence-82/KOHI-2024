@@ -304,7 +304,7 @@ typedef enum keys {
     /** @brief The right (square) bracket key e.g. ]} */
     KEY_RBRACKET = 0xDD,
 
-    KEYS_MAX_KEYS
+    KEYS_MAX_KEYS = 0xFF
 } keys;
 
 /**
@@ -441,4 +441,4 @@ KAPI const char* input_keycode_str(keys key);
 
 KAPI void input_keymap_push(const struct keymap* map);
 
-KAPI void input_keymap_pop();
+KAPI b8 input_keymap_pop();
