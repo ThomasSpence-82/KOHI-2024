@@ -76,7 +76,7 @@ void resource_system_shutdown(void* state);
  * @param loader The loader to be registered.
  * @return True on success; otherwise false.
  */
-KAPI b8 resource_system_register_loader(resource_loader loader);
+KAPI b8 resource_system_loader_register(resource_loader loader);
 
 /**
  * @brief Loads a resource of the given name.
@@ -108,4 +108,4 @@ KAPI b8 resource_system_load_custom(const char* name, const char* custom_type, v
 KAPI void resource_system_unload(resource* resource);
 
 /** @brief Returns the base path of the resource system. */
-KAPI const char* resource_system_base_path();
+KAPI const char* resource_system_base_path(void);

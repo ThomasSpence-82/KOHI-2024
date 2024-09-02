@@ -12,10 +12,12 @@
 #include "core/kstring.h"
 #include "core/uuid.h"
 #include "core/metrics.h"
+#include "core/frame_data.h"
 
 #include "containers/darray.h"
 
 #include "renderer/renderer_frontend.h"
+#include "memory/linear_allocator.h"
 
 // systems
 #include "core/systems_manager.h"
@@ -30,13 +32,18 @@ typedef struct engine_state_t {
     f64 last_time;
 
     systems_manager_state sys_manager_state;
+
+    // An allocator used for per-frame allocations, that is reset every frame.
+    linear_allocator frame_allocator;
+
+    frame_data p_frame_data;
 } engine_state_t;
 
 static engine_state_t* engine_state;
 
 // Event handlers
-b8 engine_on_event(u16 code, void* sender, void* listener_inst, event_context context);
-b8 engine_on_resized(u16 code, void* sender, void* listener_inst, event_context context);
+static b8 engine_on_event(u16 code, void* sender, void* listener_inst, event_context context);
+static b8 engine_on_resized(u16 code, void* sender, void* listener_inst, event_context context);
 
 b8 engine_create(application* game_inst) {
     if (game_inst->engine_state) {
@@ -79,13 +86,22 @@ b8 engine_create(application* game_inst) {
         KFATAL("Game boot sequence failed; aborting application.");
         return false;
     }
+
+    // Setup the frame allocator.
+    linear_allocator_create(game_inst->app_config.frame_allocator_size, 0, &engine_state->frame_allocator);
+    engine_state->p_frame_data.frame_allocator = &engine_state->frame_allocator;
+    if (game_inst->app_config.app_frame_data_size > 0) {
+        engine_state->p_frame_data.application_frame_data = kallocate(game_inst->app_config.app_frame_data_size, MEMORY_TAG_GAME);
+    } else {
+        engine_state->p_frame_data.application_frame_data = 0;
+    }
+
     game_inst->stage = APPLICATION_STAGE_BOOT_COMPLETE;
 
     if (!systems_manager_post_boot_initialize(&engine_state->sys_manager_state, &game_inst->app_config)) {
         KFATAL("Post-boot system manager initialization failed!");
         return false;
     }
-    
 
     // Report engine version
     KINFO("Kohi Engine v. %s", KVERSION);
@@ -112,7 +128,7 @@ b8 engine_run(application* game_inst) {
     clock_update(&engine_state->clock);
     engine_state->last_time = engine_state->clock.elapsed;
     // f64 running_time = 0;
-    u8 frame_count = 0;
+    // u8 frame_count = 0;
     f64 target_frame_seconds = 1.0f / 60;
     f64 frame_elapsed_time = 0;
 
@@ -130,13 +146,19 @@ b8 engine_run(application* game_inst) {
             f64 delta = (current_time - engine_state->last_time);
             f64 frame_start_time = platform_get_absolute_time();
 
+            engine_state->p_frame_data.total_time = current_time;
+            engine_state->p_frame_data.delta_time = (f32)delta;
+
+            // Reset the frame allocator
+            linear_allocator_free_all(&engine_state->frame_allocator);
+
             // Update systems.
-            systems_manager_update(&engine_state->sys_manager_state, delta);
+            systems_manager_update(&engine_state->sys_manager_state, &engine_state->p_frame_data);
 
             // update metrics
             metrics_update(frame_elapsed_time);
 
-            if (!engine_state->game_inst->update(engine_state->game_inst, (f32)delta)) {
+            if (!engine_state->game_inst->update(engine_state->game_inst, &engine_state->p_frame_data)) {
                 KFATAL("Game update failed, shutting down.");
                 engine_state->is_running = false;
                 break;
@@ -144,20 +166,19 @@ b8 engine_run(application* game_inst) {
 
             // TODO: refactor packet creation
             render_packet packet = {};
-            packet.delta_time = delta;
 
             // Call the game's render routine.
-            if (!engine_state->game_inst->render(engine_state->game_inst, &packet, (f32)delta)) {
+            if (!engine_state->game_inst->render(engine_state->game_inst, &packet, &engine_state->p_frame_data)) {
                 KFATAL("Game render failed, shutting down.");
                 engine_state->is_running = false;
                 break;
             }
 
-            renderer_draw_frame(&packet);
+            renderer_draw_frame(&packet, &engine_state->p_frame_data);
 
             // Cleanup the packet.
             for (u32 i = 0; i < packet.view_count; ++i) {
-                packet.views[i].view->on_destroy_packet(packet.views[i].view, &packet.views[i]);
+                packet.views[i].view->on_packet_destroy(packet.views[i].view, &packet.views[i]);
             }
 
             // Figure out how long the frame took and, if below
@@ -175,14 +196,14 @@ b8 engine_run(application* game_inst) {
                     platform_sleep(remaining_ms - 1);
                 }
 
-                frame_count++;
+                // frame_count++;
             }
 
             // NOTE: Input update/state copying should always be handled
             // after any input should be recorded; I.E. before this line.
             // As a safety, input is the last thing to be updated before
             // this frame ends.
-            input_update(delta);
+            input_update(&engine_state->p_frame_data);
 
             // Update last time
             engine_state->last_time = current_time;
@@ -206,13 +227,17 @@ b8 engine_run(application* game_inst) {
     return true;
 }
 
-void engine_on_event_system_initialized() {
+void engine_on_event_system_initialized(void) {
     // Register for engine-level events.
     event_register(EVENT_CODE_APPLICATION_QUIT, 0, engine_on_event);
     event_register(EVENT_CODE_RESIZED, 0, engine_on_resized);
 }
 
-b8 engine_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
+const struct frame_data* engine_frame_data_get(struct application* game_inst) {
+    return &((engine_state_t*)game_inst->engine_state)->p_frame_data;
+}
+
+static b8 engine_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
     switch (code) {
         case EVENT_CODE_APPLICATION_QUIT: {
             KINFO("EVENT_CODE_APPLICATION_QUIT recieved, shutting down.\n");
@@ -224,7 +249,7 @@ b8 engine_on_event(u16 code, void* sender, void* listener_inst, event_context co
     return false;
 }
 
-b8 engine_on_resized(u16 code, void* sender, void* listener_inst, event_context context) {
+static b8 engine_on_resized(u16 code, void* sender, void* listener_inst, event_context context) {
     if (code == EVENT_CODE_RESIZED) {
         u16 width = context.data.u16[0];
         u16 height = context.data.u16[1];

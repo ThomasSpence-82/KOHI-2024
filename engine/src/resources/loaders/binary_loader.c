@@ -10,7 +10,7 @@
 #include "platform/filesystem.h"
 #include "loader_utils.h"
 
-b8 binary_loader_load(struct resource_loader* self, const char* name, void* params, resource* out_resource) {
+static b8 binary_loader_load(struct resource_loader* self, const char* name, void* params, resource* out_resource) {
     if (!self || !name || !out_resource) {
         return false;
     }
@@ -53,13 +53,13 @@ b8 binary_loader_load(struct resource_loader* self, const char* name, void* para
     return true;
 }
 
-void binary_loader_unload(struct resource_loader* self, resource* resource) {
+static void binary_loader_unload(struct resource_loader* self, resource* resource) {
     if (!resource_unload(self, resource, MEMORY_TAG_ARRAY)) {
         KWARN("binary_loader_unload called with nullptr for self or resource.");
     }
 }
 
-resource_loader binary_resource_loader_create() {
+resource_loader binary_resource_loader_create(void) {
     resource_loader loader;
     loader.type = RESOURCE_TYPE_BINARY;
     loader.custom_type = 0;

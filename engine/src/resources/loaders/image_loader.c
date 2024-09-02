@@ -15,7 +15,7 @@
 #define STBI_NO_STDIO
 #include "vendor/stb_image.h"
 
-b8 image_loader_load(struct resource_loader* self, const char* name, void* params, resource* out_resource) {
+static b8 image_loader_load(struct resource_loader* self, const char* name, void* params, resource* out_resource) {
     if (!self || !name || !out_resource) {
         return false;
     }
@@ -107,14 +107,14 @@ b8 image_loader_load(struct resource_loader* self, const char* name, void* param
     return true;
 }
 
-void image_loader_unload(struct resource_loader* self, resource* resource) {
+static void image_loader_unload(struct resource_loader* self, resource* resource) {
     stbi_image_free(((image_resource_data*)resource->data)->pixels);
     if (!resource_unload(self, resource, MEMORY_TAG_TEXTURE)) {
         KWARN("image_loader_unload called with nullptr for self or resource.");
     }
 }
 
-resource_loader image_resource_loader_create() {
+resource_loader image_resource_loader_create(void) {
     resource_loader loader;
     loader.type = RESOURCE_TYPE_IMAGE;
     loader.custom_type = 0;

@@ -2,6 +2,8 @@
 
 #include "core/kmemory.h"
 #include "core/logger.h"
+#include "core/identifier.h"
+#include "core/kstring.h"
 #include "systems/job_system.h"
 
 #include "systems/resource_system.h"
@@ -20,7 +22,7 @@ typedef struct mesh_load_params {
  *
  * @param params The parameters passed from the job after completion.
  */
-void mesh_load_job_success(void* params) {
+ static void mesh_load_job_success(void* params) {
     mesh_load_params* mesh_params = (mesh_load_params*)params;
 
     // This also handles the GPU upload. Can't be jobified until the renderer is multithreaded.
@@ -42,7 +44,7 @@ void mesh_load_job_success(void* params) {
  *
  * @param params Parameters passed when a job fails.
  */
-void mesh_load_job_fail(void* params) {
+static void mesh_load_job_fail(void* params) {
     mesh_load_params* mesh_params = (mesh_load_params*)params;
 
     KERROR("Failed to load mesh '%s'.", mesh_params->resource_name);
@@ -57,7 +59,7 @@ void mesh_load_job_fail(void* params) {
  * @param result_data Result data passed to the completion callback.
  * @return True on job success; otherwise false.
  */
-b8 mesh_load_job_start(void* params, void* result_data) {
+static b8 mesh_load_job_start(void* params, void* result_data) {
     mesh_load_params* load_params = (mesh_load_params*)params;
     b8 result = resource_system_load(load_params->resource_name, RESOURCE_TYPE_MESH, 0, &load_params->mesh_resource);
 
@@ -67,7 +69,7 @@ b8 mesh_load_job_start(void* params, void* result_data) {
     return result;
 }
 
-b8 mesh_load_from_resource(const char* resource_name, mesh* out_mesh) {
+static b8 mesh_load_from_resource(const char* resource_name, mesh* out_mesh) {
     out_mesh->generation = INVALID_ID_U8;
 
     mesh_load_params params;
@@ -81,7 +83,69 @@ b8 mesh_load_from_resource(const char* resource_name, mesh* out_mesh) {
     return true;
 }
 
-void mesh_unload(mesh* m) {
+b8 mesh_create(mesh_config config, mesh* out_mesh) {
+    if (!out_mesh) {
+        return false;
+    }
+
+    kzero_memory(out_mesh, sizeof(mesh));
+
+    out_mesh->config = config;
+    out_mesh->generation = INVALID_ID_U8;
+    if (config.name) {
+        out_mesh->name = string_duplicate(config.name);
+    }
+
+    return true;
+}
+
+b8 mesh_initialize(mesh* m) {
+    if (!m) {
+        return false;
+    }
+
+    if (m->config.resource_name) {
+        return true;
+    } else {
+        // Just verifying config.
+        if (!m->config.g_configs) {
+            return false;
+        }
+
+        m->geometry_count = m->config.geometry_count;
+        m->geometries = kallocate(sizeof(geometry*), MEMORY_TAG_ARRAY);
+    }
+    return true;
+}
+
+b8 mesh_load(mesh* m) {
+    if (!m) {
+        return false;
+    }
+
+    m->unique_id = identifier_aquire_new_id(m);
+
+    if (m->config.resource_name) {
+        return mesh_load_from_resource(m->config.resource_name, m);
+    } else {
+        if (!m->config.g_configs) {
+            return false;
+        }
+
+        for (u32 i = 0; i < m->config.geometry_count; ++i) {
+            m->geometries[i] = geometry_system_acquire_from_config(m->config.g_configs[i], true);
+            m->generation = 0;
+
+            // Clean up the allocations for the geometry config.
+            // TODO: Do this during unload/destroy
+            geometry_system_config_dispose(&m->config.g_configs[i]);
+        }
+    }
+
+    return true;
+}
+
+b8 mesh_unload(mesh* m) {
     if (m) {
         for (u32 i = 0; i < m->geometry_count; ++i) {
             geometry_system_release(m->geometries[i]);
@@ -92,5 +156,41 @@ void mesh_unload(mesh* m) {
 
         // For good measure, invalidate the geometry so it doesn't attempt to be rendered.
         m->generation = INVALID_ID_U8;
+
+        return true;
     }
+    return false;
+}
+
+b8 mesh_destroy(mesh* m) {
+    if (!m) {
+        return false;
+    }
+
+    if (m->geometries) {
+        if (!mesh_unload(m)) {
+            KERROR("mesh_destroy - failed to unload mesh.");
+            return false;
+        }
+    }
+
+    if (m->name) {
+        kfree(m->name, string_length(m->name) + 1, MEMORY_TAG_STRING);
+        m->name = 0;
+    }
+
+    if (m->config.name) {
+        kfree(m->config.name, string_length(m->config.name) + 1, MEMORY_TAG_STRING);
+        m->config.name = 0;
+    }
+    if (m->config.resource_name) {
+        kfree(m->config.resource_name, string_length(m->config.resource_name) + 1, MEMORY_TAG_STRING);
+        m->config.resource_name = 0;
+    }
+    if (m->config.parent_name) {
+        kfree(m->config.parent_name, string_length(m->config.parent_name) + 1, MEMORY_TAG_STRING);
+        m->config.parent_name = 0;
+    }
+
+    return true;
 }

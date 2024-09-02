@@ -3,6 +3,7 @@
 #include "core/kmemory.h"
 #include "core/logger.h"
 #include "core/keymap.h"
+#include "core/frame_data.h"
 #include "containers/stack.h"
 
 typedef struct keyboard_state {
@@ -28,7 +29,7 @@ typedef struct input_state {
 // Internal input state pointer
 static input_state* state_ptr;
 
-b8 check_modifiers(keymap_modifier modifiers);
+static b8 check_modifiers(keymap_modifier modifiers);
 
 b8 input_system_initialize(u64* memory_requirement, void* state, void* config) {
     *memory_requirement = sizeof(input_state);
@@ -52,7 +53,7 @@ void input_system_shutdown(void* state) {
     state_ptr = 0;
 }
 
-void input_update(f64 delta_time) {
+void input_update(const struct frame_data* p_frame_data) {
     if (!state_ptr) {
         return;
     }
@@ -93,7 +94,7 @@ void input_update(f64 delta_time) {
     kcopy_memory(&state_ptr->mouse_previous, &state_ptr->mouse_current, sizeof(mouse_state));
 }
 
-b8 check_modifiers(keymap_modifier modifiers) {
+static b8 check_modifiers(keymap_modifier modifiers) {
     if (modifiers & KEYMAP_MODIFIER_SHIFT_BIT) {
         if (!input_is_key_down(KEY_SHIFT) && !input_is_key_down(KEY_LSHIFT) && !input_is_key_down(KEY_RSHIFT)) {
             return false;
@@ -582,7 +583,7 @@ void input_keymap_push(const keymap* map) {
     }
 }
 
-b8 input_keymap_pop() {
+b8 input_keymap_pop(void) {
     if (state_ptr) {
         // Pop the keymap from the stack, then re-apply the stack.
         keymap popped;

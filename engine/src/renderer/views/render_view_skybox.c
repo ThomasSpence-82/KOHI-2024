@@ -36,7 +36,7 @@ static b8 render_view_on_event(u16 code, void* sender, void* listener_inst, even
 
     switch (code) {
         case EVENT_CODE_DEFAULT_RENDERTARGET_REFRESH_REQUIRED:
-            render_view_system_regenerate_render_targets(self);
+            render_view_system_render_targets_regenerate(self);
             // This needs to be consumed by other views, so consider it _not_ handled.
             return false;
     }
@@ -118,9 +118,9 @@ void render_view_skybox_on_resize(struct render_view* self, u32 width, u32 heigh
     }
 }
 
-b8 render_view_skybox_on_build_packet(const struct render_view* self, struct linear_allocator* frame_allocator, void* data, struct render_view_packet* out_packet) {
+b8 render_view_skybox_on_packet_build(const struct render_view* self, struct linear_allocator* frame_allocator, void* data, struct render_view_packet* out_packet) {
     if (!self || !data || !out_packet) {
-        KWARN("render_view_skybox_on_build_packet requires valid pointer to view, packet, and data.");
+        KWARN("render_view_skybox_on_packet_build requires valid pointer to view, packet, and data.");
         return false;
     }
 
@@ -142,7 +142,7 @@ b8 render_view_skybox_on_build_packet(const struct render_view* self, struct lin
     return true;
 }
 
-void render_view_skybox_on_destroy_packet(const struct render_view* self, struct render_view_packet* packet) {
+void render_view_skybox_on_packet_destroy(const struct render_view* self, struct render_view_packet* packet) {
     // Not much to do here, just zero out.
     kzero_memory(packet, sizeof(render_view_packet));
 }
@@ -160,46 +160,48 @@ b8 render_view_skybox_on_render(const struct render_view* self, const struct ren
             return false;
         }
 
-        if (!shader_system_use_by_id(shader_id)) {
-            KERROR("Failed to use skybox shader. Render frame failed.");
-            return false;
+        if (skybox_data && skybox_data->sb) {
+            if (!shader_system_use_by_id(shader_id)) {
+                KERROR("Failed to use skybox shader. Render frame failed.");
+                return false;
+            }
+
+            // Get the view matrix, but zero out the position so the skybox stays put on screen.
+            mat4 view_matrix = camera_view_get(data->world_camera);
+            view_matrix.data[12] = 0.0f;
+            view_matrix.data[13] = 0.0f;
+            view_matrix.data[14] = 0.0f;
+
+            // Apply globals
+            // TODO: This is terrible. Need to bind by id.
+            renderer_shader_bind_globals(shader_system_get_by_id(shader_id));
+            if (!shader_system_uniform_set_by_index(data->projection_location, &packet->projection_matrix)) {
+                KERROR("Failed to apply skybox projection uniform.");
+                return false;
+            }
+            if (!shader_system_uniform_set_by_index(data->view_location, &view_matrix)) {
+                KERROR("Failed to apply skybox view uniform.");
+                return false;
+            }
+            shader_system_apply_global();
+
+            // Instance
+            shader_system_bind_instance(skybox_data->sb->instance_id);
+            if (!shader_system_uniform_set_by_index(data->cube_map_location, &skybox_data->sb->cubemap)) {
+                KERROR("Failed to apply skybox cube map uniform.");
+                return false;
+            }
+            b8 needs_update = skybox_data->sb->render_frame_number != frame_number;
+            shader_system_apply_instance(needs_update);
+
+            // Sync the frame number.
+            skybox_data->sb->render_frame_number = frame_number;
+
+            // Draw it.
+            geometry_render_data render_data = {};
+            render_data.geometry = skybox_data->sb->g;
+            renderer_geometry_draw(&render_data);
         }
-
-        // Get the view matrix, but zero out the position so the skybox stays put on screen.
-        mat4 view_matrix = camera_view_get(data->world_camera);
-        view_matrix.data[12] = 0.0f;
-        view_matrix.data[13] = 0.0f;
-        view_matrix.data[14] = 0.0f;
-
-        // Apply globals
-        // TODO: This is terrible. Need to bind by id.
-        renderer_shader_bind_globals(shader_system_get_by_id(shader_id));
-        if (!shader_system_uniform_set_by_index(data->projection_location, &packet->projection_matrix)) {
-            KERROR("Failed to apply skybox projection uniform.");
-            return false;
-        }
-        if (!shader_system_uniform_set_by_index(data->view_location, &view_matrix)) {
-            KERROR("Failed to apply skybox view uniform.");
-            return false;
-        }
-        shader_system_apply_global();
-
-        // Instance
-        shader_system_bind_instance(skybox_data->sb->instance_id);
-        if (!shader_system_uniform_set_by_index(data->cube_map_location, &skybox_data->sb->cubemap)) {
-            KERROR("Failed to apply skybox cube map uniform.");
-            return false;
-        }
-        b8 needs_update = skybox_data->sb->render_frame_number != frame_number;
-        shader_system_apply_instance(needs_update);
-
-        // Sync the frame number.
-        skybox_data->sb->render_frame_number = frame_number;
-
-        // Draw it.
-        geometry_render_data render_data = {};
-        render_data.geometry = skybox_data->sb->g;
-        renderer_draw_geometry(&render_data);
 
         if (!renderer_renderpass_end(pass)) {
             KERROR("render_view_skybox_on_render pass index %u failed to end.", p);

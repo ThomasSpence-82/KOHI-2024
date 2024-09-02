@@ -3,6 +3,8 @@
 #include "core/logger.h"
 #include "core/kmemory.h"
 #include "core/kvar.h"
+#include "core/frame_data.h"
+#include "core/kstring.h"
 #include "containers/freelist.h"
 #include "math/kmath.h"
 #include "platform/platform.h"
@@ -58,7 +60,7 @@ b8 renderer_system_initialize(u64* memory_requirement, void* state, void* config
     renderer_config.flags = RENDERER_CONFIG_FLAG_VSYNC_ENABLED_BIT | RENDERER_CONFIG_FLAG_POWER_SAVING_BIT;
 
     // Create the vsync kvar
-    kvar_create_int("vsync", (renderer_config.flags & RENDERER_CONFIG_FLAG_VSYNC_ENABLED_BIT) ? 1 : 0);
+    kvar_int_create("vsync", (renderer_config.flags & RENDERER_CONFIG_FLAG_VSYNC_ENABLED_BIT) ? 1 : 0);
 
     // Initialize the backend.
     if (!state_ptr->plugin.initialize(&state_ptr->plugin, &renderer_config, &state_ptr->window_render_target_count)) {
@@ -90,7 +92,7 @@ void renderer_on_resized(u16 width, u16 height) {
     }
 }
 
-b8 renderer_draw_frame(render_packet* packet) {
+b8 renderer_draw_frame(render_packet* packet, const struct frame_data* p_frame_data) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     state_ptr->plugin.frame_number++;
 
@@ -120,7 +122,7 @@ b8 renderer_draw_frame(render_packet* packet) {
     }
 
     // If the begin frame returned successfully, mid-frame operations may continue.
-    if (state_ptr->plugin.begin_frame(&state_ptr->plugin, packet->delta_time)) {
+    if (state_ptr->plugin.frame_begin(&state_ptr->plugin, p_frame_data)) {
         u8 attachment_index = state_ptr->plugin.window_attachment_index_get(&state_ptr->plugin);
 
         // Render each view.
@@ -132,7 +134,7 @@ b8 renderer_draw_frame(render_packet* packet) {
         }
 
         // End the frame. If this fails, it is likely unrecoverable.
-        b8 result = state_ptr->plugin.end_frame(&state_ptr->plugin, packet->delta_time);
+        b8 result = state_ptr->plugin.frame_end(&state_ptr->plugin, p_frame_data);
 
         if (!result) {
             KERROR("renderer_end_frame failed. Application shutting down...");
@@ -148,7 +150,7 @@ void renderer_viewport_set(vec4 rect) {
     state_ptr->plugin.viewport_set(&state_ptr->plugin, rect);
 }
 
-void renderer_viewport_reset() {
+void renderer_viewport_reset(void) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     state_ptr->plugin.viewport_reset(&state_ptr->plugin);
 }
@@ -158,7 +160,7 @@ void renderer_scissor_set(vec4 rect) {
     state_ptr->plugin.scissor_set(&state_ptr->plugin, rect);
 }
 
-void renderer_scissor_reset() {
+void renderer_scissor_reset(void) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     state_ptr->plugin.scissor_reset(&state_ptr->plugin);
 }
@@ -198,19 +200,19 @@ void renderer_texture_resize(texture* t, u32 new_width, u32 new_height) {
     state_ptr->plugin.texture_resize(&state_ptr->plugin, t, new_width, new_height);
 }
 
-b8 renderer_create_geometry(geometry* geometry, u32 vertex_size, u32 vertex_count, const void* vertices, u32 index_size, u32 index_count, const void* indices) {
+b8 renderer_geometry_create(geometry* geometry, u32 vertex_size, u32 vertex_count, const void* vertices, u32 index_size, u32 index_count, const void* indices) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.create_geometry(&state_ptr->plugin, geometry, vertex_size, vertex_count, vertices, index_size, index_count, indices);
+    return state_ptr->plugin.geometry_create(&state_ptr->plugin, geometry, vertex_size, vertex_count, vertices, index_size, index_count, indices);
 }
 
-void renderer_destroy_geometry(geometry* geometry) {
+void renderer_geometry_destroy(geometry* geometry) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    state_ptr->plugin.destroy_geometry(&state_ptr->plugin, geometry);
+    state_ptr->plugin.geometry_destroy(&state_ptr->plugin, geometry);
 }
 
-void renderer_draw_geometry(geometry_render_data* data) {
+void renderer_geometry_draw(geometry_render_data* data) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    state_ptr->plugin.draw_geometry(&state_ptr->plugin, data);
+    state_ptr->plugin.geometry_draw(&state_ptr->plugin, data);
 }
 
 b8 renderer_renderpass_begin(renderpass* pass, render_target* target) {
@@ -263,29 +265,29 @@ b8 renderer_shader_apply_instance(shader* s, b8 needs_update) {
     return state_ptr->plugin.shader_apply_instance(&state_ptr->plugin, s, needs_update);
 }
 
-b8 renderer_shader_acquire_instance_resources(shader* s, texture_map** maps, u32* out_instance_id) {
+b8 renderer_shader_instance_resources_acquire(shader* s, texture_map** maps, u32* out_instance_id) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.shader_acquire_instance_resources(&state_ptr->plugin, s, maps, out_instance_id);
+    return state_ptr->plugin.shader_instance_resources_acquire(&state_ptr->plugin, s, maps, out_instance_id);
 }
 
-b8 renderer_shader_release_instance_resources(shader* s, u32 instance_id) {
+b8 renderer_shader_instance_resources_release(shader* s, u32 instance_id) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.shader_release_instance_resources(&state_ptr->plugin, s, instance_id);
+    return state_ptr->plugin.shader_instance_resources_release(&state_ptr->plugin, s, instance_id);
 }
 
-b8 renderer_set_uniform(shader* s, shader_uniform* uniform, const void* value) {
+b8 renderer_shader_uniform_set(shader* s, shader_uniform* uniform, const void* value) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.shader_set_uniform(&state_ptr->plugin, s, uniform, value);
+    return state_ptr->plugin.shader_uniform_set(&state_ptr->plugin, s, uniform, value);
 }
 
-b8 renderer_texture_map_acquire_resources(struct texture_map* map) {
+b8 renderer_texture_map_resources_acquire(struct texture_map* map) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.texture_map_acquire_resources(&state_ptr->plugin, map);
+    return state_ptr->plugin.texture_map_resources_acquire(&state_ptr->plugin, map);
 }
 
-void renderer_texture_map_release_resources(struct texture_map* map) {
+void renderer_texture_map_resources_release(struct texture_map* map) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    state_ptr->plugin.texture_map_release_resources(&state_ptr->plugin, map);
+    state_ptr->plugin.texture_map_resources_release(&state_ptr->plugin, map);
 }
 
 void renderer_render_target_create(u8 attachment_count, render_target_attachment* attachments, renderpass* pass, u32 width, u32 height, render_target* out_target) {
@@ -312,12 +314,12 @@ texture* renderer_depth_attachment_get(u8 index) {
     return state_ptr->plugin.depth_attachment_get(&state_ptr->plugin, index);
 }
 
-u8 renderer_window_attachment_index_get() {
+u8 renderer_window_attachment_index_get(void) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     return state_ptr->plugin.window_attachment_index_get(&state_ptr->plugin);
 }
 
-u8 renderer_window_attachment_count_get() {
+u8 renderer_window_attachment_count_get(void) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     return state_ptr->plugin.window_attachment_count_get(&state_ptr->plugin);
 }
@@ -339,6 +341,7 @@ b8 renderer_renderpass_create(const renderpass_config* config, renderpass* out_r
     out_renderpass->clear_flags = config->clear_flags;
     out_renderpass->clear_colour = config->clear_colour;
     out_renderpass->render_area = config->render_area;
+    out_renderpass->name = string_duplicate(config->name);
 
     // Copy over config for each target.
     for (u32 t = 0; t < out_renderpass->render_target_count; ++t) {
@@ -369,22 +372,27 @@ void renderer_renderpass_destroy(renderpass* pass) {
         renderer_render_target_destroy(&pass->targets[i], true);
     }
 
+    if (pass->name) {
+        kfree(pass->name, string_length(pass->name) + 1, MEMORY_TAG_STRING);
+        pass->name = 0;
+    }
+
     state_ptr->plugin.renderpass_destroy(&state_ptr->plugin, pass);
 }
 
-b8 renderer_is_multithreaded() {
+b8 renderer_is_multithreaded(void) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     return state_ptr->plugin.is_multithreaded(&state_ptr->plugin);
 }
 
-b8 renderer_flag_enabled(renderer_config_flags flag) {
+b8 renderer_flag_enabled_get(renderer_config_flags flag) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    return state_ptr->plugin.flag_enabled(&state_ptr->plugin, flag);
+    return state_ptr->plugin.flag_enabled_get(&state_ptr->plugin, flag);
 }
 
-void renderer_flag_set_enabled(renderer_config_flags flag, b8 enabled) {
+void renderer_flag_enabled_set(renderer_config_flags flag, b8 enabled) {
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
-    state_ptr->plugin.flag_set_enabled(&state_ptr->plugin, flag, enabled);
+    state_ptr->plugin.flag_enabled_set(&state_ptr->plugin, flag, enabled);
 }
 
 b8 renderer_renderbuffer_create(renderbuffer_type type, u64 total_size, b8 use_freelist, renderbuffer* out_buffer) {
@@ -407,7 +415,7 @@ b8 renderer_renderbuffer_create(renderbuffer_type type, u64 total_size, b8 use_f
     }
 
     // Create the internal buffer from the backend.
-    if (!state_ptr->plugin.renderbuffer_create_internal(&state_ptr->plugin, out_buffer)) {
+    if (!state_ptr->plugin.renderbuffer_internal_create(&state_ptr->plugin, out_buffer)) {
         KFATAL("Unable to create backing buffer for renderbuffer. Application cannot continue.");
         return false;
     }
@@ -425,7 +433,7 @@ void renderer_renderbuffer_destroy(renderbuffer* buffer) {
         }
 
         // Free up the backend resources.
-        state_ptr->plugin.renderbuffer_destroy_internal(&state_ptr->plugin, buffer);
+        state_ptr->plugin.renderbuffer_internal_destroy(&state_ptr->plugin, buffer);
         buffer->internal_data = 0;
     }
 }
@@ -541,3 +549,4 @@ b8 renderer_renderbuffer_draw(renderbuffer* buffer, u64 offset, u32 element_coun
     renderer_system_state* state_ptr = (renderer_system_state*)systems_manager_get_state(K_SYSTEM_TYPE_RENDERER);
     return state_ptr->plugin.renderbuffer_draw(&state_ptr->plugin, buffer, offset, element_count, bind_only);
 }
+

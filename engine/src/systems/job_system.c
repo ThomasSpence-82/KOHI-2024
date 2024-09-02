@@ -4,6 +4,7 @@
 #include "core/kmutex.h"
 #include "core/kmemory.h"
 #include "core/logger.h"
+#include "core/frame_data.h"
 #include "containers/ring_queue.h"
 
 typedef struct job_thread {
@@ -48,7 +49,7 @@ typedef struct job_system_state {
 
 static job_system_state* state_ptr;
 
-void store_result(pfn_job_on_complete callback, u32 param_size, void* params) {
+static void store_result(pfn_job_on_complete callback, u32 param_size, void* params) {
     // Create the new entry.
     job_result_entry entry;
     entry.id = INVALID_ID_U16;
@@ -78,7 +79,7 @@ void store_result(pfn_job_on_complete callback, u32 param_size, void* params) {
     }
 }
 
-u32 job_thread_run(void* params) {
+static u32 job_thread_run(void* params) {
     u32 index = *(u32*)params;
     job_thread* thread = &state_ptr->job_threads[index];
     u64 thread_id = thread->thread.thread_id;
@@ -171,7 +172,7 @@ b8 job_system_initialize(u64* job_system_memory_requirement, void* state, void* 
         state_ptr->pending_results[i].id = INVALID_ID_U16;
     }
 
-    KDEBUG("Main thread id is: %#x", get_thread_id());
+    KDEBUG("Main thread id is: %#x", platform_current_thread_id());
 
     KDEBUG("Spawning %i job threads.", state_ptr->thread_count);
 
@@ -230,7 +231,7 @@ void job_system_shutdown(void* state) {
     }
 }
 
-void process_queue(ring_queue* queue, kmutex* queue_mutex) {
+static void process_queue(ring_queue* queue, kmutex* queue_mutex) {
     u64 thread_count = state_ptr->thread_count;
 
     // Check for a free thread first.
@@ -282,7 +283,7 @@ void process_queue(ring_queue* queue, kmutex* queue_mutex) {
     }
 }
 
-b8 job_system_update(void* state, f32 delta_time) {
+b8 job_system_update(void* state, const struct frame_data* p_frame_data) {
     if (!state_ptr || !state_ptr->running) {
         return false;
     }

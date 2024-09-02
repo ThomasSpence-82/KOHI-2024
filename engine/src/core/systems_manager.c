@@ -47,11 +47,11 @@ void systems_manager_shutdown(systems_manager_state* state) {
     shutdown_known_systems(state);
 }
 
-b8 systems_manager_update(systems_manager_state* state, u32 delta_time) {
+b8 systems_manager_update(systems_manager_state* state, const struct frame_data* p_frame_data) {
     for (u32 i = 0; i < K_SYSTEM_TYPE_MAX_COUNT; ++i) {
         k_system* s = &state->systems[i];
         if (s->update) {
-            if (!s->update(s->state, delta_time)) {
+            if (!s->update(s->state, p_frame_data)) {
                 KERROR("System update failed for type: %i", i);
             }
         }
@@ -104,7 +104,7 @@ void* systems_manager_get_state(u16 type) {
     return 0;
 }
 
-b8 register_known_systems_pre_boot(systems_manager_state* state, application_config* app_config) {
+static b8 register_known_systems_pre_boot(systems_manager_state* state, application_config* app_config) {
     // Memory
     if (!systems_manager_register(state, K_SYSTEM_TYPE_MEMORY, 0, memory_system_shutdown, 0, 0)) {
         KERROR("Failed to register memory system.");
@@ -231,7 +231,7 @@ b8 register_known_systems_pre_boot(systems_manager_state* state, application_con
     return true;
 }
 
-void shutdown_known_systems(systems_manager_state* state) {
+static void shutdown_known_systems(systems_manager_state* state) {
     state->systems[K_SYSTEM_TYPE_CAMERA].shutdown(state->systems[K_SYSTEM_TYPE_CAMERA].state);
     state->systems[K_SYSTEM_TYPE_FONT].shutdown(state->systems[K_SYSTEM_TYPE_FONT].state);
 
@@ -255,7 +255,7 @@ void shutdown_known_systems(systems_manager_state* state) {
     state->systems[K_SYSTEM_TYPE_MEMORY].shutdown(state->systems[K_SYSTEM_TYPE_MEMORY].state);
 }
 
-b8 register_known_systems_post_boot(systems_manager_state* state, application_config* app_config) {
+static b8 register_known_systems_post_boot(systems_manager_state* state, application_config* app_config) {
     // Texture system.
     texture_system_config texture_sys_config;
     texture_sys_config.max_texture_count = 65536;

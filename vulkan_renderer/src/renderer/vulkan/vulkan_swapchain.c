@@ -2,13 +2,15 @@
 
 #include "core/logger.h"
 #include "core/kmemory.h"
+#include "core/kstring.h"
 #include "vulkan_device.h"
 #include "vulkan_image.h"
+#include "vulkan_utils.h"
 
 #include "systems/texture_system.h"
 
-void create(vulkan_context* context, u32 width, u32 height, renderer_config_flags flags, vulkan_swapchain* swapchain);
-void destroy(vulkan_context* context, vulkan_swapchain* swapchain);
+static void create(vulkan_context* context, u32 width, u32 height, renderer_config_flags flags, vulkan_swapchain* swapchain);
+static void destroy(vulkan_context* context, vulkan_swapchain* swapchain);
 
 void vulkan_swapchain_create(
     vulkan_context* context,
@@ -91,7 +93,7 @@ void vulkan_swapchain_present(
     context->current_frame = (context->current_frame + 1) % swapchain->max_frames_in_flight;
 }
 
-void create(vulkan_context* context, u32 width, u32 height, renderer_config_flags flags, vulkan_swapchain* swapchain) {
+static void create(vulkan_context* context, u32 width, u32 height, renderer_config_flags flags, vulkan_swapchain* swapchain) {
     VkExtent2D swapchain_extent = {width, height};
 
     // Choose a swap surface format.
@@ -263,6 +265,9 @@ void create(vulkan_context* context, u32 width, u32 height, renderer_config_flag
 
     for (u32 i = 0; i < context->swapchain.image_count; ++i) {
         // Create depth image and its view.
+        char formatted_name[TEXTURE_NAME_MAX_LENGTH] = {0};
+        string_format(formatted_name, "swapchain_image_%u", i);
+
         vulkan_image* image = kallocate(sizeof(vulkan_image), MEMORY_TAG_TEXTURE);
         vulkan_image_create(
             context,
@@ -275,6 +280,7 @@ void create(vulkan_context* context, u32 width, u32 height, renderer_config_flag
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             true,
             VK_IMAGE_ASPECT_DEPTH_BIT,
+            formatted_name,
             image);
 
         // Wrap it in a texture.
@@ -293,7 +299,7 @@ void create(vulkan_context* context, u32 width, u32 height, renderer_config_flag
     KINFO("Swapchain created successfully.");
 }
 
-void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
+static void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
     vkDeviceWaitIdle(context->device.logical_device);
 
     for (u32 i = 0; i < context->swapchain.image_count; ++i) {

@@ -3,4 +3,4 @@ obj/
 *.spv
 docs/
 
-engine/src/version.h
+*.vim
