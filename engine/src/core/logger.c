@@ -4,6 +4,7 @@
 #include "platform/filesystem.h"
 #include "core/kstring.h"
 #include "core/kmemory.h"
+#include "console.h"
 
 // TODO: temporary
 #include <stdarg.h>
@@ -25,7 +26,7 @@ void append_to_log_file(const char* message) {
     }
 }
 
-b8 initialize_logging(u64* memory_requirement, void* state) {
+b8 logging_initialize(u64* memory_requirement, void* state, void* config) {
     *memory_requirement = sizeof(logger_system_state);
     if (state == 0) {
         return true;
@@ -42,7 +43,7 @@ b8 initialize_logging(u64* memory_requirement, void* state) {
     return true;
 }
 
-void shutdown_logging(void* state) {
+void logging_shutdown(void* state) {
     // TODO: cleanup logging/write queued entries.
     state_ptr = 0;
 }
@@ -70,6 +71,9 @@ void log_output(log_level level, const char* message, ...) {
 
     // Prepend log level to message.
     string_format(out_message, "%s%s\n", level_strings[level], out_message);
+
+    // Pass along to console consumers.
+    console_write_line(level, out_message);
 
     // Print accordingly
     if (is_error) {

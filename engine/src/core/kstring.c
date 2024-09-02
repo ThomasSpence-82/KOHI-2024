@@ -215,7 +215,7 @@ void string_mid(char* dest, const char* source, i32 start, i32 length) {
     }
 }
 
-i32 string_index_of(char* str, char c) {
+i32 string_index_of(const char* str, char c) {
     if (!str) {
         return -1;
     }
@@ -231,7 +231,7 @@ i32 string_index_of(char* str, char c) {
     return -1;
 }
 
-b8 string_to_vec4(char* str, vec4* out_vector) {
+b8 string_to_vec4(const char* str, vec4* out_vector) {
     if (!str) {
         return false;
     }
@@ -241,7 +241,7 @@ b8 string_to_vec4(char* str, vec4* out_vector) {
     return result != -1;
 }
 
-b8 string_to_vec3(char* str, vec3* out_vector) {
+b8 string_to_vec3(const char* str, vec3* out_vector) {
     if (!str) {
         return false;
     }
@@ -251,7 +251,7 @@ b8 string_to_vec3(char* str, vec3* out_vector) {
     return result != -1;
 }
 
-b8 string_to_vec2(char* str, vec2* out_vector) {
+b8 string_to_vec2(const char* str, vec2* out_vector) {
     if (!str) {
         return false;
     }
@@ -261,7 +261,7 @@ b8 string_to_vec2(char* str, vec2* out_vector) {
     return result != -1;
 }
 
-b8 string_to_f32(char* str, f32* f) {
+b8 string_to_f32(const char* str, f32* f) {
     if (!str) {
         return false;
     }
@@ -271,7 +271,7 @@ b8 string_to_f32(char* str, f32* f) {
     return result != -1;
 }
 
-b8 string_to_f64(char* str, f64* f) {
+b8 string_to_f64(const char* str, f64* f) {
     if (!str) {
         return false;
     }
@@ -281,7 +281,7 @@ b8 string_to_f64(char* str, f64* f) {
     return result != -1;
 }
 
-b8 string_to_i8(char* str, i8* i) {
+b8 string_to_i8(const char* str, i8* i) {
     if (!str) {
         return false;
     }
@@ -291,7 +291,7 @@ b8 string_to_i8(char* str, i8* i) {
     return result != -1;
 }
 
-b8 string_to_i16(char* str, i16* i) {
+b8 string_to_i16(const char* str, i16* i) {
     if (!str) {
         return false;
     }
@@ -301,7 +301,7 @@ b8 string_to_i16(char* str, i16* i) {
     return result != -1;
 }
 
-b8 string_to_i32(char* str, i32* i) {
+b8 string_to_i32(const char* str, i32* i) {
     if (!str) {
         return false;
     }
@@ -311,7 +311,7 @@ b8 string_to_i32(char* str, i32* i) {
     return result != -1;
 }
 
-b8 string_to_i64(char* str, i64* i) {
+b8 string_to_i64(const char* str, i64* i) {
     if (!str) {
         return false;
     }
@@ -321,7 +321,7 @@ b8 string_to_i64(char* str, i64* i) {
     return result != -1;
 }
 
-b8 string_to_u8(char* str, u8* u) {
+b8 string_to_u8(const char* str, u8* u) {
     if (!str) {
         return false;
     }
@@ -331,7 +331,7 @@ b8 string_to_u8(char* str, u8* u) {
     return result != -1;
 }
 
-b8 string_to_u16(char* str, u16* u) {
+b8 string_to_u16(const char* str, u16* u) {
     if (!str) {
         return false;
     }
@@ -341,7 +341,7 @@ b8 string_to_u16(char* str, u16* u) {
     return result != -1;
 }
 
-b8 string_to_u32(char* str, u32* u) {
+b8 string_to_u32(const char* str, u32* u) {
     if (!str) {
         return false;
     }
@@ -351,7 +351,7 @@ b8 string_to_u32(char* str, u32* u) {
     return result != -1;
 }
 
-b8 string_to_u64(char* str, u64* u) {
+b8 string_to_u64(const char* str, u64* u) {
     if (!str) {
         return false;
     }
@@ -361,7 +361,7 @@ b8 string_to_u64(char* str, u64* u) {
     return result != -1;
 }
 
-b8 string_to_bool(char* str, b8* b) {
+b8 string_to_bool(const char* str, b8* b) {
     if (!str) {
         return false;
     }
@@ -379,7 +379,7 @@ u32 string_split(const char* str, char delimiter, char*** str_darray, b8 trim_en
     u32 trimmed_length = 0;
     u32 entry_count = 0;
     u32 length = string_length(str);
-    char buffer[16384];  // If a single entry goes beyond this, well... just don't do that.
+    char buffer[16384] = {0};  // If a single entry goes beyond this, well... just don't do that.
     u32 current_length = 0;
     // Iterate each character until a delimiter is reached.
     for (u32 i = 0; i < length; ++i) {
@@ -518,4 +518,95 @@ void string_filename_no_extension_from_path(char* dest, const char* path) {
     }
 
     string_mid(dest, path, start, end - start);
+}
+
+// ----------------------
+// kstring implementation
+// ----------------------
+
+/**
+ * @brief
+ *
+ * @param string
+ * @param length The string length not including the null terminator.
+ */
+void kstring_ensure_allocated(kstring* string, u32 length) {
+    if (string) {
+        if (string->allocated < length + 1) {
+            char* new_data = kallocate(sizeof(char) * length + 1, MEMORY_TAG_STRING);
+            if (string->data) {
+                // Copy over data if there is data to copy.
+                if (string->length > 0) {
+                    string_ncopy(new_data, string->data, string->length);
+                }
+                // Clean up old data
+                kfree(string->data, sizeof(char) * string->length + 1, MEMORY_TAG_STRING);
+            }
+
+            string->data = new_data;
+            string->length = length;
+            string->allocated = length + 1;
+        }
+    }
+}
+
+void kstring_create(kstring* out_string) {
+    if (!out_string) {
+        KERROR("kstring_create requires a valid pointer to a string.");
+        return;
+    }
+
+    kzero_memory(out_string, sizeof(kstring));
+
+    kstring_ensure_allocated(out_string, 0);
+    out_string->data[0] = 0;  // Null terminator.
+}
+
+void kstring_from_cstring(const char* source, kstring* out_string) {
+    if (!out_string) {
+        KERROR("kstring_from_cstring requires a valid pointer to a string.");
+        return;
+    }
+
+    u32 source_length = string_length(source);
+    kzero_memory(out_string, sizeof(kstring));
+
+    kstring_ensure_allocated(out_string, source_length);
+
+    string_ncopy(out_string->data, source, source_length);
+    out_string->data[source_length] = 0;
+}
+
+void kstring_destroy(kstring* string) {
+    if (string) {
+        kfree(string->data, sizeof(char) * string->allocated, MEMORY_TAG_STRING);
+        kzero_memory(string, sizeof(kstring));
+    }
+}
+
+u32 kstring_length(const kstring* string) {
+    return string ? string->length : 0;
+}
+
+u32 kstring_utf8_length(const kstring* string) {
+    return string ? string_utf8_length(string->data) : 0;
+}
+
+void kstring_append_str(kstring* string, const char* s) {
+    if (string && s) {
+        u32 length = string_length(s);
+        kstring_ensure_allocated(string, string->length + length);
+        string_ncopy(string->data + string->length, s, length);
+        string->data[string->length + length] = 0;
+        string->length = string->length + length;
+    }
+}
+
+void kstring_append_kstring(kstring* string, const kstring* other) {
+    if (string && other) {
+        kstring_ensure_allocated(string, string->length + other->length);
+        string_ncopy(string->data + string->length, other->data, other->length);
+        string->data[string->length + other->length] = 0;
+        string->length = string->length + other->length;
+    }
 }

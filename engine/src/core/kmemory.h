@@ -28,7 +28,7 @@ typedef enum memory_tag {
     MEMORY_TAG_RING_QUEUE,
     MEMORY_TAG_BST,
     MEMORY_TAG_STRING,
-    MEMORY_TAG_APPLICATION,
+    MEMORY_TAG_ENGINE,
     MEMORY_TAG_JOB,
     MEMORY_TAG_TEXTURE,
     MEMORY_TAG_MATERIAL_INSTANCE,
@@ -62,12 +62,12 @@ typedef struct memory_system_configuration {
  * @brief Initializes the memory system.
  * @param config The configuration for this system.
  */
-KAPI b8 memory_system_initialize(memory_system_configuration config);
+b8 memory_system_initialize(memory_system_configuration config);
 
 /**
  * @brief Shuts down the memory system.
  */
-KAPI void memory_system_shutdown();
+void memory_system_shutdown(void* state);
 
 /**
  * @brief Performs a memory allocation from the host of the given size. The allocation

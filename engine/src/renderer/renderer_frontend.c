@@ -4,6 +4,7 @@
 
 #include "core/logger.h"
 #include "core/kmemory.h"
+#include "core/kvar.h"
 #include "containers/freelist.h"
 #include "math/kmath.h"
 #include "platform/platform.h"
@@ -40,7 +41,8 @@ typedef struct renderer_system_state {
 
 static renderer_system_state* state_ptr;
 
-b8 renderer_system_initialize(u64* memory_requirement, void* state, const char* application_name) {
+b8 renderer_system_initialize(u64* memory_requirement, void* state, void* config) {
+    renderer_system_config* typed_config = (renderer_system_config*)config;
     *memory_requirement = sizeof(renderer_system_state);
     if (state == 0) {
         return true;
@@ -58,7 +60,12 @@ b8 renderer_system_initialize(u64* memory_requirement, void* state, const char* 
     state_ptr->backend.frame_number = 0;
 
     renderer_backend_config renderer_config = {};
-    renderer_config.application_name = application_name;
+    renderer_config.application_name = typed_config->application_name;
+    // TODO: expose this to the application to configure.
+    renderer_config.flags = RENDERER_CONFIG_FLAG_VSYNC_ENABLED_BIT | RENDERER_CONFIG_FLAG_POWER_SAVING_BIT;
+
+    // Create the vsync kvar
+    kvar_create_int("vsync", (renderer_config.flags & RENDERER_CONFIG_FLAG_VSYNC_ENABLED_BIT) ? 1 : 0);
 
     // Initialize the backend.
     if (!state_ptr->backend.initialize(&state_ptr->backend, &renderer_config, &state_ptr->window_render_target_count)) {
@@ -329,12 +336,20 @@ void renderer_renderpass_destroy(renderpass* pass) {
     for (u32 i = 0; i < pass->render_target_count; ++i) {
         renderer_render_target_destroy(&pass->targets[i], true);
     }
-    
+
     state_ptr->backend.renderpass_destroy(pass);
 }
 
 b8 renderer_is_multithreaded() {
     return state_ptr->backend.is_multithreaded();
+}
+
+b8 renderer_flag_enabled(renderer_config_flags flag) {
+    return state_ptr->backend.flag_enabled(flag);
+}
+
+void renderer_flag_set_enabled(renderer_config_flags flag, b8 enabled) {
+    state_ptr->backend.flag_set_enabled(flag, enabled);
 }
 
 b8 renderer_renderbuffer_create(renderbuffer_type type, u64 total_size, b8 use_freelist, renderbuffer* out_buffer) {

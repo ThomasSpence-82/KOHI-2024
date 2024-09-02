@@ -24,7 +24,7 @@ static const char* memory_tag_strings[MEMORY_TAG_MAX_TAGS] = {
     "RING_QUEUE ",
     "BST        ",
     "STRING     ",
-    "APPLICATION",
+    "ENGINE     ",
     "JOB        ",
     "TEXTURE    ",
     "MAT_INST   ",
@@ -101,7 +101,7 @@ b8 memory_system_initialize(memory_system_configuration config) {
     return true;
 }
 
-void memory_system_shutdown() {
+void memory_system_shutdown(void* state) {
     if (state_ptr) {
         // Destroy allocation mutex
         kmutex_destroy(&state_ptr->allocation_mutex);
